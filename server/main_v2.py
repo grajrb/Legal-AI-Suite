@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr
 from PyPDF2 import PdfReader
 from dotenv import load_dotenv
@@ -37,7 +36,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 DATABASE_TYPE = os.getenv("DATABASE_TYPE", "sqlite")
 
 # Security
-pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 print(f"[CONFIG] Database Type: {DATABASE_TYPE}")
 print(f"[CONFIG] Upload Directory: {UPLOAD_DIR}")
@@ -221,20 +220,6 @@ def get_current_user(request: Request) -> dict:
     except ValueError:
         raise HTTPException(status_code=401, detail="Invalid authorization header")
 
-def get_current_user_optional(request: Request) -> Optional[dict]:
-    """Get current user from token - OPTIONAL (returns None if not authenticated)"""
-    auth_header = request.headers.get("Authorization")
-    if not auth_header:
-        return None
-    
-    try:
-        scheme, token = auth_header.split()
-        if scheme.lower() != "bearer":
-            return None
-        return verify_token(token)
-    except (ValueError, JWTError):
-        return None
-
 # ============= USER MANAGEMENT =============
 
 @app.post("/api/auth/register", response_model=TokenResponse)
@@ -359,7 +344,7 @@ def health_check():
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 @app.post("/api/upload", response_model=DocumentUploadResponse)
-async def upload_pdf(file: UploadFile = File(...), current_user: Optional[dict] = Depends(get_current_user_optional)):
+async def upload_pdf(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
     """Upload and analyze PDF"""
     if not file.filename or not file.filename.lower().endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed")
@@ -384,7 +369,7 @@ async def upload_pdf(file: UploadFile = File(...), current_user: Optional[dict] 
     cursor.execute('''
         INSERT INTO documents (id, filename, filepath, text_content, user_id, uploaded_at, file_size)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', (doc_id, file.filename, filepath, text_content, current_user.get("user_id") if current_user else None, 
+    ''', (doc_id, file.filename, filepath, text_content, current_user["user_id"], 
           datetime.now().isoformat(), len(content)))
     
     # Create session
@@ -392,7 +377,7 @@ async def upload_pdf(file: UploadFile = File(...), current_user: Optional[dict] 
     cursor.execute('''
         INSERT INTO chat_sessions (id, document_id, user_id, session_id, question_count, created_at)
         VALUES (?, ?, ?, ?, 0, ?)
-    ''', (str(uuid.uuid4()), doc_id, current_user.get("user_id") if current_user else None, session_id, datetime.now().isoformat()))
+    ''', (str(uuid.uuid4()), doc_id, current_user["user_id"], session_id, datetime.now().isoformat()))
     
     conn.commit()
     conn.close()
@@ -406,7 +391,7 @@ async def upload_pdf(file: UploadFile = File(...), current_user: Optional[dict] 
     )
 
 @app.post("/api/chat")
-async def chat(request: ChatRequest, current_user: Optional[dict] = Depends(get_current_user_optional)):
+async def chat(request: ChatRequest, current_user: dict = Depends(get_current_user)):
     """Chat with document"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -440,7 +425,7 @@ async def chat(request: ChatRequest, current_user: Optional[dict] = Depends(get_
         cursor.execute('''
             INSERT INTO chat_sessions (id, document_id, user_id, session_id, question_count, created_at)
             VALUES (?, ?, ?, ?, 1, ?)
-        ''', (str(uuid.uuid4()), request.document_id, current_user.get("user_id") if current_user else None, session_id, 
+        ''', (str(uuid.uuid4()), request.document_id, current_user["user_id"], session_id, 
               datetime.now().isoformat()))
         question_count = 1
     
@@ -448,7 +433,7 @@ async def chat(request: ChatRequest, current_user: Optional[dict] = Depends(get_
     cursor.execute('''
         INSERT INTO chat_history (id, session_id, user_id, question, created_at)
         VALUES (?, ?, ?, ?, ?)
-    ''', (str(uuid.uuid4()), session_id, current_user.get("user_id") if current_user else None, request.question, 
+    ''', (str(uuid.uuid4()), session_id, current_user["user_id"], request.question, 
           datetime.now().isoformat()))
     
     conn.commit()
@@ -578,26 +563,20 @@ async def get_paralegal_tasks(current_user: dict = Depends(get_current_user)):
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     """Custom HTTP exception handler"""
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "error": exc.detail,
-            "status_code": exc.status_code,
-            "timestamp": datetime.now().isoformat()
-        }
-    )
+    return {
+        "error": exc.detail,
+        "status_code": exc.status_code,
+        "timestamp": datetime.now().isoformat()
+    }
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     """General exception handler"""
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": "Internal server error",
-            "status_code": 500,
-            "timestamp": datetime.now().isoformat()
-        }
-    )
+    return {
+        "error": "Internal server error",
+        "status_code": 500,
+        "timestamp": datetime.now().isoformat()
+    }
 
 if __name__ == "__main__":
     import uvicorn

@@ -1,151 +1,172 @@
-import { useState, useEffect } from 'react'
-import { Briefcase, FileText, Calendar, Clock, ChevronRight } from 'lucide-react'
-import axios from 'axios'
-import Navbar from '../components/Navbar'
+import { useEffect, useState } from 'react'
+import { useAuth } from '../context/AuthContext'
+import { useNavigate } from 'react-router-dom'
+import { Calendar, FileText, AlertCircle, Loader2, LogOut, Plus } from 'lucide-react'
 
 export default function LawyerDashboard() {
-  const [data, setData] = useState(null)
+  const { user, token, logout } = useAuth()
+  const navigate = useNavigate()
+  const [matters, setMatters] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await axios.get('/api/matters')
-        setData(response.data)
-      } catch (err) {
-        console.error('Failed to fetch matters:', err)
-      } finally {
-        setLoading(false)
-      }
+    if (!user || user.role !== 'lawyer') {
+      navigate('/login')
+      return
     }
-    fetchData()
-  }, [])
 
-  const getStatusColor = (status) => {
-    switch (status.toLowerCase()) {
-      case 'in progress': return 'bg-blue-100 text-blue-700'
-      case 'review': return 'bg-yellow-100 text-yellow-700'
-      case 'pending': return 'bg-gray-100 text-gray-700'
-      default: return 'bg-gray-100 text-gray-700'
+    fetchMatters()
+  }, [user, navigate, token])
+
+  const fetchMatters = async () => {
+    try {
+      const response = await fetch('/api/matters', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (!response.ok) throw new Error('Failed to fetch matters')
+      
+      const data = await response.json()
+      setMatters(data.matters || [])
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
+  }
+
+  const handleLogout = () => {
+    logout()
+    navigate('/')
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-navy-900">Lawyer Dashboard</h1>
-          <p className="text-gray-600 mt-1">Manage your active matters and documents</p>
+      {/* Header */}
+      <div className="bg-white shadow">
+        <div className="max-w-7xl mx-auto px-8 py-6 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Lawyer Dashboard</h1>
+            <p className="text-gray-600 mt-1">{user?.email}</p>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
+          >
+            <LogOut className="w-5 h-5" />
+            <span>Logout</span>
+          </button>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl shadow-sm">
-            <div className="p-6 border-b border-gray-100">
-              <div className="flex items-center space-x-2">
-                <Briefcase className="h-6 w-6 text-gold-500" />
-                <h2 className="text-xl font-semibold text-navy-900">Active Matters</h2>
+      <div className="max-w-7xl mx-auto px-8 py-8">
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm font-medium">Active Matters</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
+                  {matters.filter(m => m.status === 'active').length}
+                </p>
               </div>
+              <FileText className="w-12 h-12 text-blue-600 opacity-20" />
             </div>
-            
-            {loading ? (
-              <div className="p-6 space-y-4">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="divide-y divide-gray-100">
-                {data?.active_matters.map((matter) => (
-                  <div key={matter.id} className="p-4 hover:bg-gray-50 transition cursor-pointer">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-medium text-navy-800">{matter.title}</h3>
-                        <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(matter.status)}`}>
-                            {matter.status}
-                          </span>
-                          <span className="flex items-center space-x-1">
-                            <Calendar className="h-4 w-4" />
-                            <span>{matter.deadline}</span>
-                          </span>
-                        </div>
-                      </div>
-                      <ChevronRight className="h-5 w-5 text-gray-400" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm">
-            <div className="p-6 border-b border-gray-100">
-              <div className="flex items-center space-x-2">
-                <FileText className="h-6 w-6 text-gold-500" />
-                <h2 className="text-xl font-semibold text-navy-900">Recent Documents</h2>
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm font-medium">Pending Documents</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
+                  {matters.filter(m => m.pending_docs > 0).length}
+                </p>
               </div>
+              <Calendar className="w-12 h-12 text-orange-600 opacity-20" />
             </div>
-            
-            {loading ? (
-              <div className="p-6 space-y-4">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                  </div>
-                ))}
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm font-medium">Upcoming Deadlines</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
+                  {matters.filter(m => m.deadline_urgent).length}
+                </p>
               </div>
-            ) : (
-              <div className="divide-y divide-gray-100">
-                {data?.recent_documents.map((doc) => (
-                  <div key={doc.id} className="p-4 hover:bg-gray-50 transition cursor-pointer">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                          <FileText className="h-5 w-5 text-red-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-navy-800">{doc.name}</h3>
-                          <p className="text-sm text-gray-500">{doc.matter}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-1 text-sm text-gray-400">
-                        <Clock className="h-4 w-4" />
-                        <span>{doc.uploaded}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+              <AlertCircle className="w-12 h-12 text-red-600 opacity-20" />
+            </div>
           </div>
         </div>
 
-        <div className="mt-6 bg-white rounded-xl p-6 shadow-sm">
-          <h2 className="text-xl font-semibold text-navy-900 mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { label: 'Upload Document', icon: FileText },
-              { label: 'New Matter', icon: Briefcase },
-              { label: 'Schedule Meeting', icon: Calendar },
-              { label: 'Request Review', icon: Clock },
-            ].map((action, index) => (
-              <button
-                key={index}
-                className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg hover:bg-gold-50 hover:border-gold-200 border border-gray-100 transition"
-              >
-                <action.icon className="h-6 w-6 text-gold-600 mb-2" />
-                <span className="text-sm font-medium text-navy-800">{action.label}</span>
-              </button>
-            ))}
+        {/* Matters List */}
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <h2 className="text-xl font-bold text-gray-900">Your Matters</h2>
+            <button className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+              <Plus className="w-5 h-5" />
+              <span>New Matter</span>
+            </button>
           </div>
+
+          {error && (
+            <div className="p-4 bg-red-50 border border-red-200 m-4 rounded-lg flex items-center space-x-2">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+              <span className="text-red-700">{error}</span>
+            </div>
+          )}
+
+          {loading ? (
+            <div className="p-8 flex items-center justify-center space-x-3">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+              <span className="text-gray-600">Loading matters...</span>
+            </div>
+          ) : matters.length === 0 ? (
+            <div className="p-8 text-center">
+              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-500">No matters yet. Create your first matter to get started.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Matter Name</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Client</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Deadline</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Documents</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {matters.map(matter => (
+                    <tr key={matter.id} className="hover:bg-gray-50 transition">
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">{matter.name}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{matter.client_name}</td>
+                      <td className="px-6 py-4 text-sm">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          matter.status === 'active'
+                            ? 'bg-green-100 text-green-800'
+                            : matter.status === 'closed'
+                            ? 'bg-gray-100 text-gray-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {matter.status.charAt(0).toUpperCase() + matter.status.slice(1)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{matter.deadline || 'N/A'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{matter.document_count || 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      </main>
+      </div>
     </div>
   )
 }

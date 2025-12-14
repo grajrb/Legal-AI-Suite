@@ -1,17 +1,25 @@
 import { useState, useEffect } from 'react'
-import { Users, FileText, AlertTriangle, Activity, TrendingUp, Clock } from 'lucide-react'
-import axios from 'axios'
+import { Users, FileText, AlertTriangle, Activity, TrendingUp, Clock, LogOut } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 
 export default function AdminDashboard() {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await axios.get('/api/stats')
-        setStats(response.data)
+        const token = localStorage.getItem('auth_token')
+        const response = await fetch('/api/stats', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        if (!response.ok) throw new Error('Failed to fetch stats')
+        const data = await response.json()
+        setStats(data)
       } catch (err) {
         console.error('Failed to fetch stats:', err)
       } finally {
@@ -20,6 +28,11 @@ export default function AdminDashboard() {
     }
     fetchStats()
   }, [])
+
+  const handleLogout = () => {
+    logout()
+    navigate('/')
+  }
 
   const statCards = stats ? [
     { icon: Users, label: 'Total Users', value: stats.total_users, color: 'bg-blue-500' },

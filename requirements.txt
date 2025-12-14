@@ -1,0 +1,11 @@
+fastapi>=0.124.4
+uvicorn>=0.38.0
+pypdf2>=3.0.1
+python-jose>=3.5.0
+python-multipart>=0.0.20
+python-dotenv>=1.0.0
+passlib[bcrypt]>=1.7.4
+python-multipart>=0.0.20
+pydantic[email]>=2.0.0
+openai>=1.0.0
+python-dateutil>=2.8.2

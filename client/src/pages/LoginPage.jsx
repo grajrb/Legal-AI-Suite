@@ -2,46 +2,123 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Scale, Mail, Lock, Loader2, AlertCircle } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import axios from 'axios'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [isRegistering, setIsRegistering] = useState(false)
+  const [fullName, setFullName] = useState('')
   const navigate = useNavigate()
   const { login } = useAuth()
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
 
     try {
-      const response = await axios.post('/api/login', { email, password })
-      login(response.data.user)
-      navigate(response.data.redirect)
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      })
+      
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.detail || 'Login failed')
+      }
+      
+      const data = await response.json()
+      login(data.user, data.access_token)
+      
+      // Redirect based on role
+      const redirectPath = {
+        'admin': '/dashboard/admin',
+        'lawyer': '/dashboard/lawyer',
+        'paralegal': '/dashboard/paralegal'
+      }[data.user.role] || '/'
+      
+      navigate(redirectPath)
     } catch (err) {
-      setError(err.response?.data?.detail || 'Login failed')
+      setError(err.message || 'Login failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRegister = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          full_name: fullName,
+          role: 'user'
+        })
+      })
+      
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.detail || 'Registration failed')
+      }
+      
+      const data = await response.json()
+      login(data.user, data.access_token)
+      navigate('/')
+    } catch (err) {
+      setError(err.message || 'Registration failed')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-navy-900 via-navy-800 to-navy-900 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center space-x-2">
-            <Scale className="h-10 w-10 text-gold-500" />
-            <span className="text-2xl font-bold text-navy-900">Legal AI</span>
+            <Scale className="h-10 w-10 text-blue-600" />
+            <span className="text-2xl font-bold text-gray-900">Legal AI</span>
           </Link>
-          <p className="text-gray-500 mt-2">Sign in to your workspace</p>
+          <p className="text-gray-500 mt-2">
+            {isRegistering ? 'Create your account' : 'Sign in to your account'}
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start">
+            <AlertCircle className="w-5 h-5 text-red-600 mr-3 mt-0.5 flex-shrink-0" />
+            <span className="text-sm text-red-700">{error}</span>
+          </div>
+        )}
+
+        <form onSubmit={isRegistering ? handleRegister : handleLogin} className="space-y-4">
+          {isRegistering && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Full Name
+              </label>
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="John Doe"
+              />
+            </div>
+          )}
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Email Address
             </label>
             <div className="relative">
@@ -50,15 +127,15 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@lawfirm.com"
+                placeholder="your@email.com"
                 required
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Password
             </label>
             <div className="relative">
@@ -67,47 +144,43 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter any password"
+                placeholder="••••••••"
                 required
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
           </div>
 
-          {error && (
-            <div className="flex items-center space-x-2 text-red-600 bg-red-50 p-3 rounded-lg">
-              <AlertCircle className="h-5 w-5" />
-              <span className="text-sm">{error}</span>
-            </div>
-          )}
-
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gold-500 hover:bg-gold-600 text-navy-900 py-3 rounded-lg font-semibold transition disabled:opacity-50 flex items-center justify-center space-x-2"
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center"
           >
-            {loading ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span>Signing in...</span>
-              </>
-            ) : (
-              <span>Sign In</span>
-            )}
+            {loading && <Loader2 className="w-5 h-5 animate-spin mr-2" />}
+            {loading ? 'Processing...' : (isRegistering ? 'Create Account' : 'Sign In')}
           </button>
         </form>
 
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <p className="text-sm text-gray-600 font-medium mb-2">Demo Credentials:</p>
-          <ul className="text-xs text-gray-500 space-y-1">
-            <li><code className="bg-gray-200 px-1 rounded">admin@test.com</code> → Admin Dashboard</li>
-            <li><code className="bg-gray-200 px-1 rounded">lawyer@test.com</code> → Lawyer Dashboard</li>
-            <li><code className="bg-gray-200 px-1 rounded">paralegal@test.com</code> → Paralegal Dashboard</li>
-          </ul>
+        <div className="mt-6 text-center">
+          <p className="text-gray-600 text-sm">
+            {isRegistering ? 'Already have an account?' : "Don't have an account?"}{' '}
+            <button
+              onClick={() => {
+                setIsRegistering(!isRegistering)
+                setError('')
+                setEmail('')
+                setPassword('')
+                setFullName('')
+              }}
+              className="text-blue-600 hover:text-blue-700 font-semibold"
+            >
+              {isRegistering ? 'Sign In' : 'Create Account'}
+            </button>
+          </p>
         </div>
 
         <p className="text-center text-sm text-gray-500 mt-6">
-          <Link to="/" className="text-gold-600 hover:text-gold-700">
+          <Link to="/" className="text-blue-600 hover:text-blue-700">
             ← Back to Home
           </Link>
         </p>

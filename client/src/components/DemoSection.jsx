@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { Upload, FileText, Send, Loader2, AlertCircle } from 'lucide-react'
-import axios from 'axios'
+import { useAuth } from '../context/AuthContext'
 
 export default function DemoSection() {
+  const { user, token } = useAuth()
   const [file, setFile] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [documentData, setDocumentData] = useState(null)
   const [question, setQuestion] = useState('')
   const [messages, setMessages] = useState([])
-  const [questionsRemaining, setQuestionsRemaining] = useState(5)
+  const [questionsRemaining, setQuestionsRemaining] = useState(user ? 99999 : 5)
   const [error, setError] = useState('')
   const [sending, setSending] = useState(false)
 
@@ -32,14 +33,20 @@ export default function DemoSection() {
     formData.append('file', file)
 
     try {
-      const response = await axios.post('/api/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        body: formData
       })
-      setDocumentData(response.data)
-      setQuestionsRemaining(5)
+      
+      if (!response.ok) throw new Error('Failed to upload')
+      
+      const data = await response.json()
+      setDocumentData(data)
+      setQuestionsRemaining(user ? 99999 : 5)
       setMessages([])
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to upload document')
+      setError(err.message || 'Failed to upload document')
     } finally {
       setUploading(false)
     }
@@ -54,19 +61,27 @@ export default function DemoSection() {
     setMessages(prev => [...prev, { type: 'user', content: userQuestion }])
 
     try {
-      const response = await axios.post('/api/chat', {
-        document_id: documentData.document_id,
-        question: userQuestion,
-        session_id: documentData.session_id
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
+        body: JSON.stringify({
+          document_id: documentData.document_id,
+          question: userQuestion,
+          session_id: documentData.session_id
+        })
       })
-      setMessages(prev => [...prev, { type: 'ai', content: response.data.answer }])
-      setQuestionsRemaining(response.data.questions_remaining)
+      
+      if (!response.ok) throw new Error('Failed to get response')
+      
+      const data = await response.json()
+      setMessages(prev => [...prev, { type: 'ai', content: data.answer }])
+      setQuestionsRemaining(data.questions_remaining)
     } catch (err) {
-      const errorMsg = err.response?.data?.detail || 'Failed to get response'
+      const errorMsg = err.message || 'Failed to get response'
       setMessages(prev => [...prev, { type: 'error', content: errorMsg }])
-      if (err.response?.status === 429) {
-        setQuestionsRemaining(0)
-      }
     } finally {
       setSending(false)
     }
