@@ -1,5 +1,6 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { Scale, LogOut, User } from 'lucide-react'
+import { Link as RouterLink, useNavigate } from 'react-router-dom'
+import { Box, Flex, HStack, Button, Text, Icon, Container, Link } from '@chakra-ui/react'
+import { LogOut, User, Scale } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 export default function Navbar() {
@@ -12,41 +13,59 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="bg-navy-900 text-white shadow-lg">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center space-x-2">
-            <Scale className="h-8 w-8 text-gold-400" />
-            <span className="text-xl font-bold">Legal AI</span>
-          </Link>
-          
-          <div className="flex items-center space-x-4">
+    <Box
+      bg="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+      color="white"
+      boxShadow="md"
+      position="sticky"
+      top={0}
+      zIndex={100}
+    >
+      <Container maxW="6xl">
+        <Flex h="64px" alignItems="center" justifyContent="space-between">
+          <Flex as={RouterLink} to="/" alignItems="center" gap={2} cursor="pointer" _hover={{ opacity: 0.8 }} transition="opacity 0.2s">
+            <Icon as={Scale} w={6} h={6} color="white" />
+            <Text fontSize="xl" fontWeight="bold">
+              Legal AI
+            </Text>
+          </Flex>
+
+          <HStack spacing={4}>
             {user ? (
               <>
-                <div className="flex items-center space-x-2 text-sm">
-                  <User className="h-4 w-4" />
-                  <span>{user.name}</span>
-                  <span className="text-gold-400 capitalize">({user.role})</span>
-                </div>
-                <button
+                <HStack spacing={2} fontSize="sm">
+                  <Icon as={User} w={4} h={4} />
+                  <Text>{user.full_name || user.name}</Text>
+                  <Text color="whiteAlpha.80" textTransform="capitalize">
+                    ({user.role})
+                  </Text>
+                </HStack>
+                <Button
+                  size="sm"
+                  leftIcon={<LogOut size={16} />}
                   onClick={handleLogout}
-                  className="flex items-center space-x-1 bg-navy-700 hover:bg-navy-600 px-3 py-2 rounded-md text-sm transition"
+                  bg="whiteAlpha.20"
+                  _hover={{ bg: 'whiteAlpha.30' }}
                 >
-                  <LogOut className="h-4 w-4" />
-                  <span>Logout</span>
-                </button>
+                  Logout
+                </Button>
               </>
             ) : (
-              <Link
+              <Button
+                as={RouterLink}
                 to="/login"
-                className="bg-gold-500 hover:bg-gold-600 text-navy-900 px-4 py-2 rounded-md font-medium transition"
+                size="sm"
+                bg="white"
+                color="purple.600"
+                fontWeight="bold"
+                _hover={{ bg: 'gray.100' }}
               >
                 Sign In
-              </Link>
+              </Button>
             )}
-          </div>
-        </div>
-      </div>
-    </nav>
+          </HStack>
+        </Flex>
+      </Container>
+    </Box>
   )
 }

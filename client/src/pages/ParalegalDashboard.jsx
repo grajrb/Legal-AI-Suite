@@ -1,196 +1,278 @@
 import { useState, useEffect } from 'react'
-import { Upload, AlertCircle, CheckCircle, Clock, FileWarning, RefreshCw, LogOut } from 'lucide-react'
+import {
+  Box,
+  Container,
+  Grid,
+  Heading,
+  Text,
+  VStack,
+  HStack,
+  Badge,
+  Button,
+  useToast,
+  Icon,
+  Flex,
+} from '@chakra-ui/react'
+import { Upload, AlertCircle, CheckCircle, Clock, FileWarning, RefreshCw } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
+import Navbar from '../components/Navbar'
+import StatCard from '../components/StatCard'
+import Card from '../components/Card'
+import LoadingSpinner from '../components/LoadingSpinner'
+import EmptyState from '../components/EmptyState'
+import { apiClient } from '../utils/api'
+
+const MotionBox = motion(Box)
 
 export default function ParalegalDashboard() {
-  const { user, token, logout } = useAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
+  const toast = useToast()
   const [tasks, setTasks] = useState([])
-  const [ocr_failures, setOcrFailures] = useState([])
+  const [ocrFailures, setOcrFailures] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
 
   useEffect(() => {
     if (!user || user.role !== 'paralegal') {
       navigate('/login')
       return
     }
-
     fetchTasks()
-  }, [user, navigate, token])
+  }, [user, navigate])
 
   const fetchTasks = async () => {
     try {
-      const response = await fetch('/api/paralegal-tasks', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      
-      if (!response.ok) throw new Error('Failed to fetch tasks')
-      
-      const data = await response.json()
-      setTasks(data.upload_queue || [])
-      setOcrFailures(data.ocr_failures || [])
+      setLoading(true)
+      const response = await apiClient.get('/api/paralegal-tasks')
+      setTasks(response.data?.upload_queue || [])
+      setOcrFailures(response.data?.ocr_failures || [])
     } catch (err) {
-      setError(err.message)
+      toast({
+        title: 'Error',
+        description: err.message || 'Failed to fetch tasks',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      })
     } finally {
       setLoading(false)
     }
   }
 
-  const handleLogout = () => {
-    logout()
-    navigate('/')
+  const stats = [
+    { label: 'Documents Processed', value: '156', change: '+12 today', color: 'blue.500', icon: CheckCircle },
+    { label: 'Avg. Processing Time', value: '2.3s', change: '-0.5s faster', color: 'green.500', icon: Clock },
+    { label: 'Success Rate', value: '97.2%', change: '+1.2% up', color: 'purple.500', icon: Upload },
+  ]
+
+  if (loading) {
+    return (
+      <Box minH="100vh" bg="gray.50">
+        <Navbar />
+        <Container maxW="container.xl" py={8}>
+          <LoadingSpinner message="Loading tasks..." />
+        </Container>
+      </Box>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-8 py-6 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Paralegal Dashboard</h1>
-            <p className="text-gray-600 mt-1">{user?.email}</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
-          >
-            <LogOut className="w-5 h-5" />
-            <span>Logout</span>
-          </button>
-        </div>
-      </div>
-      
-      <main className="max-w-7xl mx-auto px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg shadow">
-            <div className="p-6 border-b border-gray-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Upload className="h-6 w-6 text-blue-600" />
-                  <h2 className="text-xl font-semibold text-gray-900">Upload Queue</h2>
-                </div>
-                <span className="bg-blue-100 text-blue-700 text-sm px-3 py-1 rounded-full">
-                  {tasks.length} pending
-                </span>
-              </div>
-            </div>
-            
-            {loading ? (
-              <div className="p-6 space-y-4">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                  </div>
-                ))}
-              </div>
-            ) : tasks.length === 0 ? (
-              <div className="p-6 text-center text-gray-500">
-                <p>No documents in upload queue</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-gray-100">
-                {tasks.map((item) => (
-                  <div key={item.id} className="p-4 hover:bg-gray-50 transition">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                          <Upload className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-gray-900">{item.filename}</h3>
-                          <div className="flex items-center space-x-2 mt-1">
-                            {item.status === 'processing' && <RefreshCw className="h-4 w-4 text-blue-500 animate-spin" />}
-                            {item.status === 'queued' && <Clock className="h-4 w-4 text-gray-400" />}
-                            {item.status === 'completed' && <CheckCircle className="h-4 w-4 text-green-500" />}
-                            <span className="text-sm text-gray-500">{item.status}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+    <Box minH="100vh" bg="gray.50">
+      <Navbar />
 
-          <div className="bg-white rounded-lg shadow">
-            <div className="p-6 border-b border-gray-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <FileWarning className="h-6 w-6 text-red-600" />
-                  <h2 className="text-xl font-semibold text-gray-900">OCR Failures</h2>
-                </div>
-                <span className="bg-red-100 text-red-700 text-sm px-3 py-1 rounded-full">
-                  {ocr_failures.length} issues
-                </span>
-              </div>
-            </div>
-            
-            {loading ? (
-              <div className="p-6 space-y-4">
-                {[...Array(2)].map((_, i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                  </div>
-                ))}
-              </div>
-            ) : ocr_failures.length === 0 ? (
-              <div className="p-6 text-center text-gray-500">
-                <p>No OCR failures - all documents processed successfully!</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-gray-100">
-                {ocr_failures.map((item) => (
-                  <div key={item.id} className="p-4 hover:bg-gray-50 transition">
-                    <div className="flex items-start space-x-3">
-                      <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <AlertCircle className="h-5 w-5 text-red-600" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-medium text-gray-900">{item.filename}</h3>
-                        <p className="text-sm text-red-600 mt-1">{item.error}</p>
-                        <p className="text-xs text-gray-400 mt-1">{item.date}</p>
-                      </div>
-                      <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                        Retry
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+      <Container maxW="container.xl" py={8}>
+        {/* Header */}
+        <MotionBox
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          mb={8}
+        >
+          <Heading size="xl" color="gray.800" mb={2}>
+            Paralegal Dashboard
+          </Heading>
+          <Text color="gray.600" fontSize="lg">
+            Manage document uploads and processing
+          </Text>
+        </MotionBox>
 
-        <div className="mt-6 bg-white rounded-lg p-6 shadow">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Upload New Document</h2>
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition cursor-pointer">
-            <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600 mb-2">Drag and drop files here, or click to browse</p>
-            <p className="text-sm text-gray-400">Supports PDF, DOC, DOCX (Max 50MB)</p>
-          </div>
-        </div>
-
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[
-            { label: 'Documents Processed', value: '156', change: '+12 today' },
-            { label: 'Avg. Processing Time', value: '2.3s', change: '-0.5s vs last week' },
-            { label: 'Success Rate', value: '97.2%', change: '+1.2% this month' },
-          ].map((stat, index) => (
-            <div key={index} className="bg-white rounded-lg p-6 shadow">
-              <p className="text-sm text-gray-500">{stat.label}</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
-              <p className="text-xs text-green-600 mt-2">{stat.change}</p>
-            </div>
+        {/* Stats */}
+        <Grid
+          templateColumns={{ base: '1fr', md: 'repeat(3, 1fr)' }}
+          gap={6}
+          mb={8}
+        >
+          {stats.map((stat, index) => (
+            <StatCard
+              key={index}
+              icon={stat.icon}
+              label={stat.label}
+              value={stat.value}
+              color={stat.color}
+              delay={index * 0.1}
+            />
           ))}
-        </div>
-      </main>
-    </div>
+        </Grid>
+
+        {/* Main Content Grid */}
+        <Grid templateColumns={{ base: '1fr', lg: 'repeat(2, 1fr)' }} gap={6} mb={8}>
+          {/* Upload Queue */}
+          <Card>
+            <Flex justify="space-between" align="center" mb={4}>
+              <HStack spacing={2}>
+                <Icon as={Upload} boxSize={6} color="blue.500" />
+                <Heading size="md">Upload Queue</Heading>
+              </HStack>
+              <Badge colorScheme="blue" fontSize="sm" px={2} py={1}>
+                {tasks.length} pending
+              </Badge>
+            </Flex>
+
+            {tasks.length === 0 ? (
+              <EmptyState
+                icon={Upload}
+                title="No documents in queue"
+                description="All uploads have been processed"
+              />
+            ) : (
+              <VStack spacing={0} divider={<Box h="1px" bg="gray.100" />}>
+                {tasks.map((item, index) => (
+                  <MotionBox
+                    key={item.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    w="full"
+                    py={4}
+                  >
+                    <Flex align="center" gap={3}>
+                      <Box
+                        w="40px"
+                        h="40px"
+                        bg="blue.100"
+                        borderRadius="lg"
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="center"
+                      >
+                        <Icon as={Upload} boxSize={5} color="blue.600" />
+                      </Box>
+                      <Box flex="1">
+                        <Text fontWeight="medium" color="gray.800">
+                          {item.filename}
+                        </Text>
+                        <HStack spacing={2} mt={1}>
+                          {item.status === 'processing' && <Icon as={RefreshCw} boxSize={4} color="blue.500" className="spin" />}
+                          {item.status === 'queued' && <Icon as={Clock} boxSize={4} color="gray.400" />}
+                          {item.status === 'completed' && <Icon as={CheckCircle} boxSize={4} color="green.500" />}
+                          <Text fontSize="sm" color="gray.500">
+                            {item.status}
+                          </Text>
+                        </HStack>
+                      </Box>
+                    </Flex>
+                  </MotionBox>
+                ))}
+              </VStack>
+            )}
+          </Card>
+
+          {/* OCR Failures */}
+          <Card>
+            <Flex justify="space-between" align="center" mb={4}>
+              <HStack spacing={2}>
+                <Icon as={FileWarning} boxSize={6} color="red.500" />
+                <Heading size="md">OCR Failures</Heading>
+              </HStack>
+              <Badge colorScheme="red" fontSize="sm" px={2} py={1}>
+                {ocrFailures.length} issues
+              </Badge>
+            </Flex>
+
+            {ocrFailures.length === 0 ? (
+              <EmptyState
+                icon={CheckCircle}
+                title="No OCR failures"
+                description="All documents processed successfully!"
+              />
+            ) : (
+              <VStack spacing={0} divider={<Box h="1px" bg="gray.100" />}>
+                {ocrFailures.map((item, index) => (
+                  <MotionBox
+                    key={item.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    w="full"
+                    py={4}
+                  >
+                    <Flex align="start" gap={3}>
+                      <Box
+                        w="40px"
+                        h="40px"
+                        bg="red.100"
+                        borderRadius="lg"
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="center"
+                        flexShrink={0}
+                      >
+                        <Icon as={AlertCircle} boxSize={5} color="red.600" />
+                      </Box>
+                      <Box flex="1">
+                        <Text fontWeight="medium" color="gray.800">
+                          {item.filename}
+                        </Text>
+                        <Text fontSize="sm" color="red.600" mt={1}>
+                          {item.error}
+                        </Text>
+                        <Text fontSize="xs" color="gray.400" mt={1}>
+                          {item.date}
+                        </Text>
+                      </Box>
+                      <Button
+                        size="sm"
+                        colorScheme="blue"
+                        variant="ghost"
+                        onClick={() => toast({ title: 'Retry feature coming soon!', status: 'info' })}
+                      >
+                        Retry
+                      </Button>
+                    </Flex>
+                  </MotionBox>
+                ))}
+              </VStack>
+            )}
+          </Card>
+        </Grid>
+
+        {/* Upload New Document */}
+        <Card>
+          <Heading size="md" mb={4}>
+            Upload New Document
+          </Heading>
+          <Box
+            border="2px dashed"
+            borderColor="gray.300"
+            borderRadius="lg"
+            p={8}
+            textAlign="center"
+            _hover={{ borderColor: 'blue.400', bg: 'blue.50' }}
+            transition="all 0.2s"
+            cursor="pointer"
+            onClick={() => toast({ title: 'Upload feature coming soon!', status: 'info' })}
+          >
+            <Icon as={Upload} boxSize={12} color="gray.400" mx="auto" mb={4} />
+            <Text color="gray.600" mb={2}>
+              Drag and drop files here, or click to browse
+            </Text>
+            <Text fontSize="sm" color="gray.400">
+              Supports PDF, DOC, DOCX (Max 50MB)
+            </Text>
+          </Box>
+        </Card>
+      </Container>
+    </Box>
   )
 }
