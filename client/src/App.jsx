@@ -6,6 +6,11 @@ import AdminDashboard from './pages/AdminDashboard'
 import LawyerDashboard from './pages/LawyerDashboard'
 import ParalegalDashboard from './pages/ParalegalDashboard'
 import ProtectedRoute from './components/ProtectedRoute'
+import ClientsPage from './pages/ClientsPage'
+import MattersPage from './pages/MattersPage'
+import FoldersPage from './pages/FoldersPage'
+import TemplatesPage from './pages/TemplatesPage'
+import AdminAssistant from './pages/AdminAssistant'
 
 function App() {
   return (
@@ -27,6 +32,31 @@ function App() {
           <Route path="/dashboard/paralegal" element={
             <ProtectedRoute allowedRoles={['paralegal']}>
               <ParalegalDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/clients" element={
+            <ProtectedRoute allowedRoles={['admin','lawyer','paralegal']}>
+              <ClientsPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/matters" element={
+            <ProtectedRoute allowedRoles={['admin','lawyer']}>
+              <MattersPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/folders" element={
+            <ProtectedRoute allowedRoles={['admin','lawyer','paralegal']}>
+              <FoldersPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/templates" element={
+            <ProtectedRoute allowedRoles={['admin','lawyer']}>
+              <TemplatesPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/assistant" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminAssistant />
             </ProtectedRoute>
           } />
         </Routes>

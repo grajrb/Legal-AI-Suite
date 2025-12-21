@@ -33,6 +33,17 @@ export default function Navbar() {
           <HStack spacing={4}>
             {user ? (
               <>
+                <HStack spacing={4} display={{ base: 'none', md: 'flex' }}>
+                  <Link as={RouterLink} to="/clients" _hover={{ textDecoration: 'none', opacity: 0.9 }}>Clients</Link>
+                  <Link as={RouterLink} to="/matters" _hover={{ textDecoration: 'none', opacity: 0.9 }}>Matters</Link>
+                  <Link as={RouterLink} to="/folders" _hover={{ textDecoration: 'none', opacity: 0.9 }}>Folders</Link>
+                  {(user.role === 'admin' || user.role === 'lawyer') && (
+                    <Link as={RouterLink} to="/templates" _hover={{ textDecoration: 'none', opacity: 0.9 }}>Templates</Link>
+                  )}
+                  {user.role === 'admin' && (
+                    <Link as={RouterLink} to="/admin/assistant" _hover={{ textDecoration: 'none', opacity: 0.9 }}>Assistant</Link>
+                  )}
+                </HStack>
                 <HStack spacing={2} fontSize="sm">
                   <Icon as={User} w={4} h={4} />
                   <Text>{user.full_name || user.name}</Text>

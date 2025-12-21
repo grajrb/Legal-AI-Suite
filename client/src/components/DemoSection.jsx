@@ -26,6 +26,23 @@ export default function DemoSection() {
   const handleUpload = async () => {
     if (!file) return
 
+    // Demo mode: enforce one document per 30 minutes for anonymous users
+    if (!user) {
+      try {
+        const raw = localStorage.getItem('demo_uploaded_until')
+        if (raw) {
+          const expiresAt = Number(raw)
+          if (Date.now() < expiresAt) {
+            const minsLeft = Math.ceil((expiresAt - Date.now()) / 60000)
+            setError(`Demo limit reached. Try again in ~${minsLeft} min or sign up for full access.`)
+            return
+          } else {
+            localStorage.removeItem('demo_uploaded_until')
+          }
+        }
+      } catch {}
+    }
+
     setUploading(true)
     setError('')
 
@@ -45,6 +62,12 @@ export default function DemoSection() {
       setDocumentData(data)
       setQuestionsRemaining(user ? 99999 : 5)
       setMessages([])
+
+      // Mark demo upload window (30 minutes)
+      if (!user) {
+        const expiresAt = Date.now() + 30 * 60 * 1000
+        try { localStorage.setItem('demo_uploaded_until', String(expiresAt)) } catch {}
+      }
     } catch (err) {
       setError(err.message || 'Failed to upload document')
     } finally {
@@ -220,17 +243,23 @@ export default function DemoSection() {
               </div>
             </div>
 
-            <button
-              onClick={() => {
-                setDocumentData(null)
-                setFile(null)
-                setMessages([])
-                setQuestionsRemaining(5)
-              }}
-              className="w-full text-center text-navy-600 hover:text-navy-800 underline"
-            >
-              Upload a different document
-            </button>
+            {user ? (
+              <button
+                onClick={() => {
+                  setDocumentData(null)
+                  setFile(null)
+                  setMessages([])
+                  setQuestionsRemaining(5)
+                }}
+                className="w-full text-center text-navy-600 hover:text-navy-800 underline"
+              >
+                Upload a different document
+              </button>
+            ) : (
+              <p className="w-full text-center text-gray-500">
+                Demo allows one document every 30 minutes. Create an account for unlimited uploads.
+              </p>
+            )}
           </div>
         )}
       </div>

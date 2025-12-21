@@ -59,6 +59,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState(null)
   const [activityData, setActivityData] = useState([])
   const [loading, setLoading] = useState(true)
+  const [auditCount, setAuditCount] = useState(0)
 
   useEffect(() => {
     if (!user || user.role !== 'admin') {
@@ -72,6 +73,11 @@ export default function AdminDashboard() {
     try {
       setLoading(true)
       const response = await apiClient.get('/api/stats')
+      // Also fetch recent audit logs (role: admin)
+      try {
+        const auditRes = await apiClient.get('/api/audit')
+        setAuditCount((auditRes.data?.logs || []).length)
+      } catch {}
 
       setStats(response.data || {
         total_users: 0,
@@ -112,6 +118,13 @@ export default function AdminDashboard() {
       value: stats.total_users,
       color: 'blue.500',
       trend: 12
+    },
+    {
+      icon: Activity,
+      label: 'Audit Events',
+      value: auditCount,
+      color: 'teal.500',
+      trend: null
     },
     {
       icon: FileText,
