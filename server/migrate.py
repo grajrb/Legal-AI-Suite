@@ -9,7 +9,7 @@ import os
 import sys
 
 MIGRATIONS_DIR = os.path.join(os.path.dirname(__file__), 'migrations')
-INIT_SQL = os.path.join(MIGRATIONS_DIR, '001_init_postgres.sql')
+INIT_SQL = os.path.join(MIGRATIONS_DIR, '001_init_postgres_novector.sql')
 
 
 def apply_init_sql():
