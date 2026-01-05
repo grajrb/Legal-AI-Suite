@@ -6,7 +6,7 @@ import os
 import asyncio
 from datetime import datetime
 from typing import Optional
-from fastapi import FastAPI, Request, HTTPException, Depends
+from fastapi import FastAPI, Request, HTTPException, Depends, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -229,6 +229,82 @@ else:
     print("[ROUTES] Warning: PostgreSQL routes not available")
 
 # ============= ADDITIONAL ENDPOINTS =============
+
+@app.post("/api/demo/upload")
+async def demo_upload(file: UploadFile = File(...)):
+    """Demo upload without authentication"""
+    from pathlib import Path
+    import shutil
+    from server import ai_service
+    from PyPDF2 import PdfReader
+    
+    if not file.filename.endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+    
+    # Save file temporarily
+    UPLOAD_DIR = os.getenv("UPLOAD_DIR", "server/uploads")
+    file_path = Path(UPLOAD_DIR) / f"{db.generate_uuid()}_{file.filename}"
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with file_path.open("wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    try:
+        # Extract text from PDF
+        reader = PdfReader(str(file_path))
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() + "\n"
+        
+        # Generate summary
+        summary_result = ai_service.generate_summary(text)
+        
+        if not summary_result['success']:
+            raise HTTPException(status_code=500, detail="Failed to generate summary")
+        
+        # Create temporary document ID
+        doc_id = db.generate_uuid()
+        session_id = db.generate_uuid()
+        
+        return {
+            "document_id": doc_id,
+            "session_id": session_id,
+            "filename": file.filename,
+            "summary": summary_result['data'],
+            "text": text[:5000]  # First 5000 chars for context
+        }
+    except Exception as e:
+        print(f"[DEMO UPLOAD ERROR] {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+
+@app.post("/api/demo/chat")
+async def demo_chat(request: dict):
+    """Demo chat without authentication"""
+    from server import ai_service
+    
+    question = request.get('question')
+    context = request.get('text', '')  # Full text from upload
+    document_id = request.get('document_id')
+    session_id = request.get('session_id')
+    
+    if not question:
+        raise HTTPException(status_code=400, detail="Question is required")
+    
+    try:
+        # Get chat answer using AI
+        response = ai_service.chat_with_context(question, context[:4000])  # Limit context
+        
+        if not response['success']:
+            raise HTTPException(status_code=500, detail=response['error'])
+        
+        return {
+            "answer": response['answer'],
+            "questions_remaining": 5,  # Demo limit
+            "session_id": session_id
+        }
+    except Exception as e:
+        print(f"[DEMO CHAT ERROR] {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
 
 @app.get("/api/vector-stats")
 async def vector_statistics(current_user: dict = Depends(require_roles(["admin"]))):

@@ -116,11 +116,11 @@ export default function LoginPage() {
       })
 
       const roleRoutes = {
-        admin: '/admin',
-        lawyer: '/lawyer',
-        paralegal: '/paralegal',
+        admin: '/dashboard/admin',
+        lawyer: '/dashboard/lawyer',
+        paralegal: '/dashboard/paralegal',
       }
-      const redirectRoute = roleRoutes[data.user.role] || '/'
+      const redirectRoute = roleRoutes[data.user.role] || '/dashboard/lawyer'
       navigate(redirectRoute)
     } catch (error) {
       const errorMessage = handleApiError(error)
@@ -190,11 +190,11 @@ export default function LoginPage() {
       })
 
       const roleRoutes = {
-        admin: '/admin',
-        lawyer: '/lawyer',
-        paralegal: '/paralegal',
+        admin: '/dashboard/admin',
+        lawyer: '/dashboard/lawyer',
+        paralegal: '/dashboard/paralegal',
       }
-      const redirectRoute = roleRoutes[data.user.role] || '/'
+      const redirectRoute = roleRoutes[data.user.role] || '/dashboard/lawyer'
       navigate(redirectRoute)
     } catch (error) {
       const errorMessage = handleApiError(error)

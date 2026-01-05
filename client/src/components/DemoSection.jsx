@@ -50,13 +50,19 @@ export default function DemoSection() {
     formData.append('file', file)
 
     try {
-      const response = await fetch('/api/upload', {
+      // Use demo endpoint if not logged in
+      const endpoint = user ? '/api/documents/upload' : '/api/demo/upload'
+      
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
         body: formData
       })
       
-      if (!response.ok) throw new Error('Failed to upload')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || 'Failed to upload document')
+      }
       
       const data = await response.json()
       setDocumentData(data)
@@ -69,6 +75,7 @@ export default function DemoSection() {
         try { localStorage.setItem('demo_uploaded_until', String(expiresAt)) } catch {}
       }
     } catch (err) {
+      console.error('Upload error:', err)
       setError(err.message || 'Failed to upload document')
     } finally {
       setUploading(false)
@@ -84,7 +91,10 @@ export default function DemoSection() {
     setMessages(prev => [...prev, { type: 'user', content: userQuestion }])
 
     try {
-      const response = await fetch('/api/chat', {
+      // Use demo endpoint if not logged in
+      const endpoint = user ? '/api/documents/chat' : '/api/demo/chat'
+      
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -93,16 +103,21 @@ export default function DemoSection() {
         body: JSON.stringify({
           document_id: documentData.document_id,
           question: userQuestion,
-          session_id: documentData.session_id
+          session_id: documentData.session_id,
+          text: documentData.text || ''  // Pass full text for demo
         })
       })
       
-      if (!response.ok) throw new Error('Failed to get response')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || 'Failed to get response')
+      }
       
       const data = await response.json()
       setMessages(prev => [...prev, { type: 'ai', content: data.answer }])
-      setQuestionsRemaining(data.questions_remaining)
+      setQuestionsRemaining(data.questions_remaining || questionsRemaining - 1)
     } catch (err) {
+      console.error('Chat error:', err)
       const errorMsg = err.message || 'Failed to get response'
       setMessages(prev => [...prev, { type: 'error', content: errorMsg }])
     } finally {

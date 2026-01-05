@@ -30,7 +30,7 @@ class ApiClient {
   private instance: AxiosInstance;
   private baseURL: string;
 
-  constructor(baseURL: string = 'http://localhost:8000') {
+  constructor(baseURL: string = '/api') {
     this.baseURL = baseURL;
     this.instance = axios.create({
       baseURL,
