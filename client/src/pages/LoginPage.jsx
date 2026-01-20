@@ -99,7 +99,7 @@ export default function LoginPage() {
     setLoginLoading(true)
 
     try {
-      const data = await apiClient.post('/api/auth/login', sanitizeObject({
+      const data = await apiClient.post('/auth/login', sanitizeObject({
         email: validation.data.email,
         password: validation.data.password,
       }))
@@ -171,7 +171,7 @@ export default function LoginPage() {
     setRegisterLoading(true)
 
     try {
-      const data = await apiClient.post('/api/auth/register', sanitizeObject({
+      const data = await apiClient.post('/auth/register', sanitizeObject({
         email: validation.data.email,
         password: validation.data.password,
         full_name: validation.data.fullName,
